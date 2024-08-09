@@ -1,12 +1,8 @@
 import * as userController from "../controllers/userController.js";
-let currentUser = null;
-
 export default function UserRoutes(app) {
   const createUser = async (req, res) => { 
     const user = await userController.createUser(req.body);
     res.json(user);
-
-
   };
   const deleteUser = async (req, res) => {       
     const status = await userController.deleteUser(req.params.userId);
@@ -38,10 +34,40 @@ export default function UserRoutes(app) {
     res.json(status);
   };
 
-  const signup = async (req, res) => { };
-  const signin = async (req, res) => { };
-  const signout = (req, res) => { };
-  const profile = async (req, res) => { };
+  const signup = async (req, res) => {
+    const user = await userController.findUserByUsername(req.body.username);
+    if (user) {
+      res.status(400).json(
+        { message: "Username already taken" });
+      return;
+    }
+    const currentUser = await userController.createUser(req.body);
+    req.session["currentUser"] = currentUser;
+    res.json(currentUser);
+  };
+
+  const signin = async (req, res) => {
+    const { username, password } = req.body;
+    const currentUser = await userController.findUserByCredentials(username, password);
+    if (currentUser) {
+      req.session["currentUser"] = currentUser;
+      res.json(currentUser);
+    } else {
+      res.status(401).json({ message: "Username or Password is incorrect." });
+    }
+  };
+  const signout = (req, res) => {
+    req.session.destroy();
+    res.sendStatus(200);
+  };
+  const profile = async (req, res) => {
+    const currentUser = req.session["currentUser"];
+    if (!currentUser) {
+      res.sendStatus(401);
+      return;
+    }
+    res.json(currentUser);
+  };
   app.post("/api/users", createUser);
   app.get("/api/users", findAllUsers);
   app.get("/api/users/:userId", findUserById);
